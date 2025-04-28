@@ -1,1 +1,22 @@
-
+config global 'settings'
+    option enable_mqtt '1'
+    option auto_discovery '1'
+    
+config mqtt 'mqtt'
+    option broker 'mqtt.example.com'
+    option port '1883'
+    option username 'user'
+    option password 'pass'
+    
+config device 'living_room_rm'
+    option name 'Living Room RM Pro'
+    option type 'rm4'
+    option mac '34:EA:34:...'
+    option ip '192.168.1.100'
+    list mqtt_topics 'home/living_room/tv'
+    
+config code 'tv_power'
+    option device 'living_room_rm'
+    option code 'JgBQAAABK...'
+    option protocol 'NEC'
+    option frequency '38'
