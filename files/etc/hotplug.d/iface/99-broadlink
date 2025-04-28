@@ -1,1 +1,6 @@
+#!/bin/sh
+# files/etc/hotplug.d/iface/99-broadlink
 
+[ "$ACTION" = "ifup" ] && {
+    /etc/init.d/broadlink restart
+}
