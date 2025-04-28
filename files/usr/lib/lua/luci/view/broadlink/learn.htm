@@ -4,35 +4,41 @@
     <h2><%:Learn IR/RF Codes%></h2>
     
     <div class="cbi-section">
-        <div class="cbi-value">
-            <label class="cbi-value-title"><%:Select Device:%></label>
-            <div class="cbi-value-field">
-                <select id="device-select">
-                    <% for _, dev in ipairs(devices) do %>
-                        <option value="<%=dev.mac%>"><%=dev.name%> (<%=dev.mac%>)</option>
-                    <% end %>
-                </select>
+        <% if devices and #devices > 0 then %>
+            <div class="cbi-value">
+                <label class="cbi-value-title"><%:Select Device:%></label>
+                <div class="cbi-value-field">
+                    <select id="device-select">
+                        <% for _, dev in ipairs(devices) do %>
+                            <option value="<%=dev.mac%>"><%=dev.name%> (<%=dev.mac%>)</option>
+                        <% end %>
+                    </select>
+                </div>
             </div>
-        </div>
-        
-        <div class="cbi-value">
-            <label class="cbi-value-title"><%:Code Type:%></label>
-            <div class="cbi-value-field">
-                <select id="code-type">
-                    <option value="ir">IR</option>
-                    <option value="rf">RF</option>
-                </select>
+            
+            <div class="cbi-value">
+                <label class="cbi-value-title"><%:Code Type:%></label>
+                <div class="cbi-value-field">
+                    <select id="code-type">
+                        <option value="ir">IR</option>
+                        <option value="rf">RF</option>
+                    </select>
+                </div>
             </div>
-        </div>
-        
-        <button class="cbi-button cbi-button-apply" onclick="startLearning()"><%:Start Learning%></button>
-        
-        <div id="learning-status" class="alert-message" style="display:none; margin-top:15px">
-            <div class="spinner"></div>
-            <span><%:Learning in progress...%></span>
-        </div>
-        
-        <div id="learned-code" class="alert-message success" style="display:none; margin-top:15px"></div>
+            
+            <button class="cbi-button cbi-button-apply" onclick="startLearning()"><%:Start Learning%></button>
+            
+            <div id="learning-status" class="alert-message" style="display:none; margin-top:15px">
+                <div class="spinner"></div>
+                <span><%:Learning in progress...%></span>
+            </div>
+            
+            <div id="learned-code" class="alert-message success" style="display:none; margin-top:15px"></div>
+        <% else %>
+            <div class="alert-message warning">
+                <%:No devices found! Please add devices first.%>
+            </div>
+        <% end %>
     </div>
 </div>
 
@@ -44,7 +50,10 @@ function startLearning() {
     document.getElementById('learning-status').style.display = 'block';
     
     fetch('/cgi-bin/luci/admin/services/broadlink/learn?mac=' + encodeURIComponent(deviceMac) + '&type=' + codeType)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('HTTP Error: ' + response.status);
+            return response.json();
+        })
         .then(data => {
             document.getElementById('learning-status').style.display = 'none';
             if(data.success) {
@@ -52,6 +61,11 @@ function startLearning() {
                     '<%:Learned Code:%> <code>' + data.code + '</code>';
                 document.getElementById('learned-code').style.display = 'block';
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('learning-status').style.display = 'none';
+            alert('<%:Learning failed! Check console for details.%>');
         });
 }
 </script>
