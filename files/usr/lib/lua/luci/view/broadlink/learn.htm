@@ -49,9 +49,9 @@ function startLearning() {
     
     document.getElementById('learning-status').style.display = 'block';
     
-    fetch('/cgi-bin/luci/admin/services/broadlink/learn?mac=' + encodeURIComponent(deviceMac) + '&type=' + codeType)
+    fetch('/cgi-bin/luci/admin/services/broadlink/learn_action?mac=' + encodeURIComponent(deviceMac) + '&type=' + codeType)
         .then(response => {
-            if (!response.ok) throw new Error('HTTP Error: ' + response.status);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
             return response.json();
         })
         .then(data => {
@@ -64,28 +64,9 @@ function startLearning() {
         })
         .catch(error => {
             console.error('Error:', error);
-            document.getElementById('learning-status').style.display = 'none';
-            alert('<%:Learning failed! Check console for details.%>');
+            alert('<%:Learning failed!%>');
         });
 }
 </script>
-
-<style>
-.spinner {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid #f3f3f3;
-    border-radius: 50%;
-    border-top: 3px solid #3498db;
-    animation: spin 1s linear infinite;
-    margin-right: 10px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-</style>
 
 <%+footer%>
