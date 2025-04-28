@@ -8,7 +8,7 @@
             <div class="cbi-value">
                 <label class="cbi-value-title"><%:Select Device:%></label>
                 <div class="cbi-value-field">
-                    <select id="device-select">
+                    <select id="device-select" class="cbi-input-select">
                         <% for _, dev in ipairs(devices) do %>
                             <option value="<%=dev.mac%>"><%=dev.name%> (<%=dev.mac%>)</option>
                         <% end %>
@@ -19,54 +19,78 @@
             <div class="cbi-value">
                 <label class="cbi-value-title"><%:Code Type:%></label>
                 <div class="cbi-value-field">
-                    <select id="code-type">
+                    <select id="code-type" class="cbi-input-select">
                         <option value="ir">IR</option>
                         <option value="rf">RF</option>
                     </select>
                 </div>
             </div>
             
-            <button class="cbi-button cbi-button-apply" onclick="startLearning()"><%:Start Learning%></button>
+            <!-- دکمه Learn -->
+            <button class="cbi-button cbi-button-action" id="learn-btn">
+                <%:Learn Code%>
+            </button>
             
-            <div id="learning-status" class="alert-message" style="display:none; margin-top:15px">
+            <!-- وضعیت یادگیری -->
+            <div id="status" style="display:none; margin-top:15px">
                 <div class="spinner"></div>
-                <span><%:Learning in progress...%></span>
+                <span class="cbi-value-description"><%:Learning...%></span>
             </div>
             
-            <div id="learned-code" class="alert-message success" style="display:none; margin-top:15px"></div>
+            <!-- نمایش کد یادگرفته شده -->
+            <div id="result" class="alert-message success" style="display:none">
+                <strong><%:Learned Code:%></strong>
+                <code id="code-data"></code>
+                
+                <!-- دکمه تست -->
+                <button class="cbi-button cbi-button-positive" id="test-btn">
+                    <%:Test Code%>
+                </button>
+            </div>
         <% else %>
             <div class="alert-message warning">
-                <%:No devices found! Please add devices first.%>
+                <%:No devices found!%>
             </div>
         <% end %>
     </div>
 </div>
 
 <script>
-function startLearning() {
-    const deviceMac = document.getElementById('device-select').value;
-    const codeType = document.getElementById('code-type').value;
+document.getElementById("learn-btn").addEventListener("click", function() {
+    const deviceMac = document.getElementById("device-select").value;
+    const codeType = document.getElementById("code-type").value;
+    const statusDiv = document.getElementById("status");
+    const resultDiv = document.getElementById("result");
     
-    document.getElementById('learning-status').style.display = 'block';
+    statusDiv.style.display = "block";
     
-    fetch('/cgi-bin/luci/admin/services/broadlink/learn_action?mac=' + encodeURIComponent(deviceMac) + '&type=' + codeType)
-        .then(response => {
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            return response.json();
-        })
+    fetch(`/cgi-bin/luci/admin/services/broadlink/learn_action?mac=${encodeURIComponent(deviceMac)}&type=${codeType}`)
+        .then(response => response.json())
         .then(data => {
-            document.getElementById('learning-status').style.display = 'none';
+            statusDiv.style.display = "none";
             if(data.success) {
-                document.getElementById('learned-code').innerHTML = 
-                    '<%:Learned Code:%> <code>' + data.code + '</code>';
-                document.getElementById('learned-code').style.display = 'block';
+                resultDiv.style.display = "block";
+                document.getElementById("code-data").textContent = data.code;
+            } else {
+                alert("<%:Learning failed!%>");
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('<%:Learning failed!%>');
         });
-}
+});
+
+document.getElementById("test-btn").addEventListener("click", function() {
+    const code = document.getElementById("code-data").textContent;
+    const deviceMac = document.getElementById("device-select").value;
+    
+    fetch(`/cgi-bin/luci/admin/services/broadlink/send_code?mac=${encodeURIComponent(deviceMac)}&code=${encodeURIComponent(code)}`)
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert("<%:Code sent successfully!%>");
+            } else {
+                alert("<%:Failed to send code!%>");
+            }
+        });
+});
 </script>
 
 <%+footer%>
