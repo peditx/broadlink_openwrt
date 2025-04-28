@@ -1,0 +1,113 @@
+<%+ header%>
+
+<div class="cbi-map">
+    <h2 name="content"><%:Broadlink Devices%></h2>
+    
+    <div class="cbi-map-descr"><%:Manage connected Broadlink devices%></div>
+    
+    <fieldset class="cbi-section" id="devices-list">
+        <legend><%:Connected Devices%></legend>
+        
+        <div class="table-wrapper">
+            <table class="table devices-table">
+                <thead>
+                    <tr>
+                        <th><%:Name%></th>
+                        <th><%:IP Address%></th>
+                        <th><%:Type%></th>
+                        <th><%:Status%></th>
+                        <th><%:Actions%></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% for _, dev in ipairs(devices) do %>
+                    <tr class="device-item" data-mac="<%=dev.mac%>">
+                        <td><%=dev.name%></td>
+                        <td><%=dev.ip%></td>
+                        <td><%=dev.type:upper()%></td>
+                        <td>
+                            <span class="status-dot <%=dev.online and 'online' or 'offline'%>"></span>
+                            <%=dev.online and 'Online' or 'Offline'%>
+                        </td>
+                        <td>
+                            <button class="btn cbi-button cbi-button-edit" onclick="learnCode('<%=dev.mac%>')"><%:Learn%></button>
+                            <button class="btn cbi-button cbi-button-remove" onclick="removeDevice('<%=dev.mac%>')"><%:Remove%></button>
+                        </td>
+                    </tr>
+                    <% end %>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="cbi-section-create">
+            <button class="cbi-button cbi-button-add" onclick="openDiscoveryModal()"><%:Add New Device%></button>
+        </div>
+    </fieldset>
+</div>
+
+<div id="discovery-modal" class="modal" style="display:none">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3><%:Device Discovery%></h3>
+        <div id="discovery-results"></div>
+        <div class="loading-spinner"></div>
+    </div>
+</div>
+
+<script>
+function openDiscoveryModal() {
+    document.getElementById('discovery-modal').style.display = 'block';
+    fetchDiscoveryResults();
+}
+
+async function fetchDiscoveryResults() {
+    const response = await fetch('/cgi-bin/luci/admin/services/broadlink/discover');
+    const devices = await response.json();
+    
+    let html = '';
+    devices.forEach(dev => {
+        html += `<div class="discovered-device">
+            <span>${dev.mac} - ${dev.type}</span>
+            <button onclick="addDevice('${dev.mac}')"><%:Add%></button>
+        </div>`;
+    });
+    
+    document.getElementById('discovery-results').innerHTML = html;
+}
+</script>
+
+<style>
+.status-dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.online { background: #5cb85c; }
+.status-dot.offline { background: #d9534f; }
+
+.devices-table {
+    margin: 20px 0;
+    width: 100%;
+}
+
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background: #fff;
+    margin: 15% auto;
+    padding: 20px;
+    width: 60%;
+}
+</style>
+
+<%+ footer%>
