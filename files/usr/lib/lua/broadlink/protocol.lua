@@ -50,21 +50,25 @@ function _M.build_packet(device_type, payload)
     return header .. size .. profile.iv .. encrypted
 end
 
--- ارسال کد به دستگاه
+-- ارسال کد به دستگاه (نسخه بهبود یافته)
 function _M.send_code(ip, code)
     local tcp = socket.tcp()
     tcp:settimeout(5)
     
+    -- اتصال به دستگاه
     local ok, err = tcp:connect(ip, 80)
     if not ok then
         return false, "Connection failed: " .. tostring(err)
     end
     
+    -- ساخت پکت
     local packet, err = _M.build_packet("RM4 Pro", code)
     if not packet then
-        return false, err
+        tcp:close()
+        return false, "Packet build failed: " .. tostring(err)
     end
     
+    -- ارسال داده
     local bytes, err = tcp:send(packet)
     tcp:close()
     
@@ -153,6 +157,5 @@ function _M.get_device_type(type_code)
     }
     return device_types[type_code] or "Unknown (0x" .. string.format("%04X", type_code) .. ")"
 end
-
 
 return _M
