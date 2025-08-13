@@ -1,15 +1,34 @@
 #!/bin/sh /etc/rc.common
 
 START=99
+STOP=15
 USE_PROCD=1
+PROG="/usr/sbin/broadlinkd"
+
+# This script now correctly starts the Lua daemon.
+# The daemon itself will handle MQTT connection based on UCI config.
 
 start_service() {
-    procd_open_instance
-    procd_set_param command /usr/sbin/broadlinkd -c /etc/config/broadlink
-    procd_set_param respawn
-    procd_close_instance
+	# Check if the service is enabled in the config file
+	local enabled
+	config_load broadlink
+	config_get_bool enabled global enabled '0'
+	[ "$enabled" -eq 1 ] || return 1
+
+	procd_open_instance
+	procd_set_param command /usr/bin/lua "$PROG"
+	procd_set_param respawn ${respawn_threshold:-3600} ${respawn_timeout:-5} ${respawn_retry:-5}
+	procd_set_param stdout 1 # Forward daemon stdout to logd
+	procd_set_param stderr 1 # Forward daemon stderr to logd
+	procd_set_param file /etc/config/broadlink
+	procd_close_instance
 }
 
-stop_service() {
-    killall broadlinkd
+# The stop_service function is handled automatically by procd,
+# so we don't need to define it here.
+
+# This allows reloading the service configuration without a full restart
+reload_service() {
+	stop
+	start
 }
