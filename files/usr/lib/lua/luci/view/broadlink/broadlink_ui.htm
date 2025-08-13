@@ -1,0 +1,378 @@
+<%+header%>
+<style>
+	/* Glassmorphism style inspired by Air-Cast */
+	.glass-panel { background: rgba(30, 30, 40, 0.75); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; color: #f0f0f0; padding: 25px 30px; margin: 20px auto; max-width: 950px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+	.panel-title { font-size: 1.8em; font-weight: bold; text-align: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 15px; }
+	.info-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; font-size: 1.1em; }
+	.info-label { font-weight: bold; }
+	.status-running { color: #28a745; font-weight: bold; }
+	.status-stopped { color: #dc3545; font-weight: bold; }
+	.data-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
+	.data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+	.data-table th { background-color: rgba(255, 255, 255, 0.05); }
+	.data-table td.actions { display: flex; gap: 5px; }
+	.btn-container { text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 10px; }
+	.glass-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: background 0.3s, transform 0.1s; font-weight: bold; }
+	.glass-btn:hover { background: rgba(255, 255, 255, 0.2); }
+	.glass-btn:active { transform: scale(0.98); }
+	.glass-btn:disabled { background: rgba(128, 128, 128, 0.2); color: #888; cursor: not-allowed; border-color: rgba(128, 128, 128, 0.3); }
+	.glass-btn.btn-positive { background-color: rgba(40, 167, 69, 0.5); }
+	.glass-btn.btn-negative { background-color: rgba(220, 53, 69, 0.5); }
+	.cbi-input-text, .cbi-input-select { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 6px; width: 100%; }
+	#log-panel { margin-top: 20px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 15px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); }
+	.spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: #fff; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 10px auto; }
+	@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+
+<!-- Main Status Panel -->
+<div class="glass-panel">
+	<div class="panel-title">Broadlink NG Control</div>
+	<div class="info-row">
+		<span class="info-label">Daemon Status:</span><span id="daemonStatus">Loading...</span>
+	</div>
+	<div class="info-row">
+		<span class="info-label">MQTT Service:</span><span id="mqttStatus">Loading...</span>
+	</div>
+	<div class="btn-container">
+		<button class="glass-btn" onclick="restartService()">Restart Service</button>
+	</div>
+</div>
+
+<!-- Device Management Panel -->
+<div class="glass-panel">
+	<div class="panel-title">Device Management</div>
+	<p style="text-align: center; margin-bottom: 20px;">Discover devices on your network or add them manually.</p>
+	<div class="btn-container">
+		<button class="glass-btn btn-positive" id="discoverBtn" onclick="discoverDevices()">Discover Network</button>
+	</div>
+	<div id="discoverySpinner" style="display:none;"><div class="spinner"></div></div>
+	<table class="data-table">
+		<thead><tr><th>Discovered Devices</th><th>MAC</th><th>IP</th><th>Type</th><th>Action</th></tr></thead>
+		<tbody id="discoveryList"></tbody>
+	</table>
+	<hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+	<table class="data-table">
+		<thead><tr><th>Configured Devices</th><th>Name</th><th>MAC / IP</th><th>Type</th><th>Action</th></tr></thead>
+		<tbody id="configuredDeviceList"></tbody>
+	</table>
+</div>
+
+<!-- Code Learning & Management Panel -->
+<div class="glass-panel">
+	<div class="panel-title">Code Learning & Management</div>
+	<div id="learnSection">
+		<div class="cbi-value">
+			<label class="cbi-value-title">Select Device to Learn With:</label>
+			<div class="cbi-value-field">
+				<select id="learnDeviceSelect" class="cbi-input-select"></select>
+			</div>
+		</div>
+		<div class="btn-container">
+			<button class="glass-btn btn-positive" id="learnBtn" onclick="learnCode()">Learn New Code</button>
+		</div>
+		<div id="learnStatus" style="display:none; text-align:center; margin-top:15px;">
+			<div class="spinner"></div>
+			<p>Point remote at device and press a button...</p>
+		</div>
+		<div id="learnedCodeSection" style="display:none; margin-top: 20px;">
+			<h4>New Code Learned!</h4>
+			<code id="learnedCodeData" style="word-break: break-all;"></code>
+			<div class="cbi-value">
+				<label class="cbi-value-title">Enter a name for this code:</label>
+				<div class="cbi-value-field">
+					<input type="text" id="newCodeName" class="cbi-input-text" placeholder="e.g., TV Power">
+				</div>
+			</div>
+			<div class="btn-container">
+				<button class="glass-btn" onclick="saveLearnedCode()">Save Code</button>
+			</div>
+		</div>
+	</div>
+	<hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+	<table class="data-table">
+		<thead><tr><th>Saved Codes</th><th>Name</th><th>Device</th><th>Action</th></tr></thead>
+		<tbody id="savedCodeList"></tbody>
+	</table>
+</div>
+
+<!-- Log Panel -->
+<div class="glass-panel">
+	<div class="panel-title">Client-Side Log</div>
+	<div id="log-panel"><div style="color: #888;">Log will appear here...</div></div>
+</div>
+
+<script type="text/javascript">
+	const API_URL = '<%=luci.dispatcher.build_url("admin/services/broadlink_api")%>';
+	const logPanel = document.getElementById('log-panel');
+	let logHistory = [];
+
+	// --- Core Functions ---
+	function log(message, type = 'info') {
+		const timestamp = new Date().toLocaleTimeString();
+		const fullMessage = `[${timestamp}] ${message}`;
+		logHistory.unshift(fullMessage);
+		if (logHistory.length > 25) logHistory.pop();
+		
+		let color = '#fff';
+		if (type === 'error') color = '#ff8a8a';
+		if (type === 'success') color = '#8aff94';
+		
+		logPanel.innerHTML = logHistory.map(entry => `<div style="color:${color}; border-bottom: 1px solid #444; padding: 2px 0;">${escapeHTML(entry)}</div>`).join('');
+	}
+
+	function escapeHTML(str) {
+		return str.toString().replace(/[&<>"']/g, tag => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[tag]));
+	}
+
+	async function apiCall(params) {
+		try {
+			const response = await XHR.get(API_URL, params);
+			if (!response) {
+				log('API call failed: No response from server.', 'error');
+				return null;
+			}
+			log(`API Action '${params.action}' successful.`);
+			return response;
+		} catch (e) {
+			log(`API call error for action '${params.action}': ${e}`, 'error');
+			return null;
+		}
+	}
+
+	// --- UI Rendering ---
+	function renderAll() {
+		log('Refreshing all data from server...');
+		apiCall({ action: 'get_status' }).then(data => {
+			if(data) renderStatus(data);
+		});
+		apiCall({ action: 'get_data' }).then(data => {
+			if(data) {
+				renderConfiguredDevices(data.devices);
+				renderSavedCodes(data.codes);
+				populateLearnSelect(data.devices);
+			}
+		});
+	}
+
+	function renderStatus(data) {
+		document.getElementById('daemonStatus').textContent = data.running ? 'Running' : 'Stopped';
+		document.getElementById('daemonStatus').className = data.running ? 'status-running' : 'status-stopped';
+		document.getElementById('mqttStatus').textContent = data.mqtt_enabled ? 'Enabled' : 'Disabled';
+	}
+	
+	function renderDiscovery(devices) {
+		const list = document.getElementById('discoveryList');
+		list.innerHTML = '';
+		if (!devices || devices.length === 0) {
+			list.innerHTML = '<tr><td colspan="5" style="text-align:center;">No new devices found.</td></tr>';
+			return;
+		}
+		devices.forEach(dev => {
+			const row = list.insertRow();
+			row.innerHTML = `
+				<td>${escapeHTML(dev.type_name)}</td>
+				<td>${escapeHTML(dev.mac)}</td>
+				<td>${escapeHTML(dev.ip)}</td>
+				<td>0x${dev.type_code.toString(16)}</td>
+				<td class="actions"><button class="glass-btn" onclick="addDevice(this, '${escapeHTML(dev.mac)}', '${escapeHTML(dev.ip)}', '${escapeHTML(dev.type_name)}')">Add</button></td>
+			`;
+		});
+	}
+
+	function renderConfiguredDevices(devices) {
+		const list = document.getElementById('configuredDeviceList');
+		list.innerHTML = '';
+		if (!devices || devices.length === 0) {
+			list.innerHTML = '<tr><td colspan="4" style="text-align:center;">No devices configured.</td></tr>';
+			return;
+		}
+		devices.forEach(dev => {
+			const row = list.insertRow();
+			row.innerHTML = `
+				<td>${escapeHTML(dev.name)}</td>
+				<td>${escapeHTML(dev.mac)}<br>${escapeHTML(dev.ip)}</td>
+				<td>${escapeHTML(dev.type)}</td>
+				<td class="actions"><button class="glass-btn btn-negative" onclick="removeDevice(this, '${escapeHTML(dev.id)}')">Remove</button></td>
+			`;
+		});
+	}
+
+	function renderSavedCodes(codes) {
+		const list = document.getElementById('savedCodeList');
+		list.innerHTML = '';
+		if (!codes || codes.length === 0) {
+			list.innerHTML = '<tr><td colspan="4" style="text-align:center;">No codes saved.</td></tr>';
+			return;
+		}
+		codes.forEach(code => {
+			const row = list.insertRow();
+			row.innerHTML = `
+				<td>${escapeHTML(code.name)}</td>
+				<td>${escapeHTML(code.device)}</td>
+				<td class="actions">
+					<button class="glass-btn" onclick="testCode(this, '${escapeHTML(code.id)}')">Test</button>
+					<button class="glass-btn btn-negative" onclick="removeCode(this, '${escapeHTML(code.id)}')">Remove</button>
+				</td>
+			`;
+		});
+	}
+
+	function populateLearnSelect(devices) {
+		const select = document.getElementById('learnDeviceSelect');
+		select.innerHTML = '';
+		if (!devices || devices.length === 0) {
+			select.innerHTML = '<option>Add a device first</option>';
+			document.getElementById('learnBtn').disabled = true;
+			return;
+		}
+		document.getElementById('learnBtn').disabled = false;
+		devices.forEach(dev => {
+			const option = document.createElement('option');
+			option.value = dev.id;
+			option.textContent = `${dev.name} (${dev.ip})`;
+			select.appendChild(option);
+		});
+	}
+
+	// --- Event Handlers ---
+	function restartService() {
+		log('Requesting service restart...');
+		luci.sys.call({
+			path: '/etc/init.d/broadlink',
+			params: ['restart'],
+			cb: function() {
+				log('Service restart command sent.', 'success');
+				setTimeout(renderAll, 2000);
+			}
+		});
+	}
+	
+	async function discoverDevices() {
+		log('Starting network discovery...');
+		document.getElementById('discoverBtn').disabled = true;
+		document.getElementById('discoverySpinner').style.display = 'block';
+		const data = await apiCall({ action: 'discover' });
+		document.getElementById('discoverBtn').disabled = false;
+		document.getElementById('discoverySpinner').style.display = 'none';
+		if (data && data.success) {
+			log(`Discovery finished. Found ${data.devices.length} devices.`, 'success');
+			renderDiscovery(data.devices);
+		} else {
+			log('Discovery failed.', 'error');
+		}
+	}
+
+	async function addDevice(btn, mac, ip, type) {
+		btn.disabled = true;
+		const name = prompt(`Enter a name for this device (${mac})`, `My ${type}`);
+		if (!name) {
+			btn.disabled = false;
+			return;
+		}
+		log(`Adding device ${name}...`);
+		const data = await apiCall({ action: 'add_device', mac: mac, ip: ip, type: type, name: name });
+		if (data && data.success) {
+			log('Device added successfully.', 'success');
+			renderAll();
+		} else {
+			log('Failed to add device.', 'error');
+			btn.disabled = false;
+		}
+	}
+
+	async function removeDevice(btn, id) {
+		if (!confirm(`Are you sure you want to remove the device "${id}" and all its saved codes?`)) return;
+		btn.disabled = true;
+		log(`Removing device ${id}...`);
+		const data = await apiCall({ action: 'remove_device', id: id });
+		if (data && data.success) {
+			log('Device removed.', 'success');
+			renderAll();
+		} else {
+			log('Failed to remove device.', 'error');
+			btn.disabled = false;
+		}
+	}
+
+	async function learnCode() {
+		const deviceId = document.getElementById('learnDeviceSelect').value;
+		if (!deviceId) {
+			alert('Please select a device.');
+			return;
+		}
+		log(`Starting learning process for ${deviceId}...`);
+		document.getElementById('learnBtn').disabled = true;
+		document.getElementById('learnStatus').style.display = 'block';
+		document.getElementById('learnedCodeSection').style.display = 'none';
+
+		const data = await apiCall({ action: 'learn', device_id: deviceId });
+
+		document.getElementById('learnBtn').disabled = false;
+		document.getElementById('learnStatus').style.display = 'none';
+		if (data && data.success) {
+			log(`Code learned successfully: ${data.code.substring(0, 20)}...`, 'success');
+			document.getElementById('learnedCodeSection').style.display = 'block';
+			document.getElementById('learnedCodeData').textContent = data.code;
+			document.getElementById('newCodeName').value = '';
+		} else {
+			log(`Learning failed: ${data ? data.message : 'Unknown error'}`, 'error');
+			alert(`Learning failed: ${data ? data.message : 'Unknown error'}`);
+		}
+	}
+
+	async function saveLearnedCode() {
+		const deviceId = document.getElementById('learnDeviceSelect').value;
+		const code = document.getElementById('learnedCodeData').textContent;
+		const name = document.getElementById('newCodeName').value;
+		if (!name) {
+			alert('Please enter a name for the code.');
+			return;
+		}
+		log(`Saving code "${name}"...`);
+		const data = await apiCall({ action: 'save_code', device_id: deviceId, name: name, code: code });
+		if (data && data.success) {
+			log('Code saved.', 'success');
+			document.getElementById('learnedCodeSection').style.display = 'none';
+			renderAll();
+		} else {
+			log('Failed to save code.', 'error');
+		}
+	}
+
+	async function testCode(btn, id) {
+		btn.disabled = true;
+		btn.textContent = 'Testing...';
+		log(`Testing code ${id}...`);
+		const data = await apiCall({ action: 'test_code', id: id });
+		if (data && data.success) {
+			log('Test command sent.', 'success');
+		} else {
+			log(`Test failed: ${data ? data.message : 'Unknown error'}`, 'error');
+		}
+		setTimeout(() => {
+			btn.disabled = false;
+			btn.textContent = 'Test';
+		}, 1000);
+	}
+
+	async function removeCode(btn, id) {
+		if (!confirm(`Are you sure you want to remove the code "${id}"?`)) return;
+		btn.disabled = true;
+		log(`Removing code ${id}...`);
+		const data = await apiCall({ action: 'remove_code', id: id });
+		if (data && data.success) {
+			log('Code removed.', 'success');
+			renderAll();
+		} else {
+			log('Failed to remove code.', 'error');
+			btn.disabled = false;
+		}
+	}
+
+	// --- Initial Load ---
+	document.addEventListener('DOMContentLoaded', function() {
+		log('Broadlink NG UI Initialized.');
+		renderAll();
+	});
+</script>
+<%+footer%>
