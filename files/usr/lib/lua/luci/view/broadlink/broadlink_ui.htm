@@ -10,7 +10,7 @@
 	.data-table { width: 100%; margin-top: 20px; border-collapse: collapse; }
 	.data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
 	.data-table th { background-color: rgba(255, 255, 255, 0.05); }
-	.data-table td.actions { display: flex; gap: 5px; }
+	.data-table td.actions { display: flex; gap: 5px; justify-content: flex-end; }
 	.btn-container { text-align: center; margin-top: 25px; display: flex; justify-content: center; gap: 10px; }
 	.glass-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 8px 15px; border-radius: 8px; cursor: pointer; transition: background 0.3s, transform 0.1s; font-weight: bold; }
 	.glass-btn:hover { background: rgba(255, 255, 255, 0.2); }
@@ -22,6 +22,10 @@
 	#log-panel { margin-top: 20px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 15px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1); }
 	.spinner { border: 4px solid rgba(255,255,255,0.1); border-left-color: #fff; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 10px auto; }
 	@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+	.accordion-header { background-color: rgba(255, 255, 255, 0.05); padding: 15px; margin-top: 10px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+	.accordion-content { padding: 0 15px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background-color: rgba(0,0,0,0.1); border-radius: 0 0 8px 8px;}
+	.accordion-content.active { max-height: 500px; /* Adjust as needed */ padding: 15px; }
+	.add-form { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
 </style>
 
 <!-- Main Status Panel -->
@@ -40,14 +44,14 @@
 
 <!-- Device Management Panel -->
 <div class="glass-panel">
-	<div class="panel-title">Device Management</div>
-	<p style="text-align: center; margin-bottom: 20px;">Discover devices on your network or add them manually.</p>
+	<div class="panel-title">1. Physical Device Management</div>
+	<p style="text-align: center; margin-bottom: 20px;">First, discover and add your physical Broadlink devices.</p>
 	<div class="btn-container">
 		<button class="glass-btn btn-positive" id="discoverBtn" onclick="discoverDevices()">Discover Network</button>
 	</div>
 	<div id="discoverySpinner" style="display:none;"><div class="spinner"></div></div>
 	<table class="data-table">
-		<thead><tr><th>Discovered Devices</th><th>MAC</th><th>IP</th><th>Type</th><th>Action</th></tr></thead>
+		<thead><tr><th>Discovered Devices</th><th>MAC / IP</th><th>Type</th><th>Action</th></tr></thead>
 		<tbody id="discoveryList"></tbody>
 	</table>
 	<hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
@@ -57,14 +61,29 @@
 	</table>
 </div>
 
+<!-- Remote Control Management Panel -->
+<div class="glass-panel">
+	<div class="panel-title">2. Logical Remote Management</div>
+	<p style="text-align: center; margin-bottom: 20px;">Create logical remotes (e.g., "Living Room TV") and link them to a physical device.</p>
+	<div class="add-form">
+		<input type="text" id="newRemoteName" class="cbi-input-text" placeholder="New Remote Name" style="flex-grow: 1;">
+		<select id="addRemoteDeviceSelect" class="cbi-input-select" style="flex-grow: 1;"></select>
+		<button class="glass-btn btn-positive" onclick="addRemote()">Add Remote</button>
+	</div>
+	<table class="data-table">
+		<thead><tr><th>Configured Remotes</th><th>Name</th><th>Controlled By (Physical Device)</th><th>Action</th></tr></thead>
+		<tbody id="configuredRemoteList"></tbody>
+	</table>
+</div>
+
 <!-- Code Learning & Management Panel -->
 <div class="glass-panel">
-	<div class="panel-title">Code Learning & Management</div>
+	<div class="panel-title">3. Code Learning & Management</div>
 	<div id="learnSection">
 		<div class="cbi-value">
-			<label class="cbi-value-title">Select Device to Learn With:</label>
+			<label class="cbi-value-title">Select Remote to Add Code To:</label>
 			<div class="cbi-value-field">
-				<select id="learnDeviceSelect" class="cbi-input-select"></select>
+				<select id="learnRemoteSelect" class="cbi-input-select"></select>
 			</div>
 		</div>
 		<div class="btn-container">
@@ -72,15 +91,15 @@
 		</div>
 		<div id="learnStatus" style="display:none; text-align:center; margin-top:15px;">
 			<div class="spinner"></div>
-			<p>Point remote at device and press a button...</p>
+			<p>Point remote at the Broadlink device and press a button...</p>
 		</div>
 		<div id="learnedCodeSection" style="display:none; margin-top: 20px;">
 			<h4>New Code Learned!</h4>
 			<code id="learnedCodeData" style="word-break: break-all;"></code>
 			<div class="cbi-value">
-				<label class="cbi-value-title">Enter a name for this code:</label>
+				<label class="cbi-value-title">Enter a name for this button/code:</label>
 				<div class="cbi-value-field">
-					<input type="text" id="newCodeName" class="cbi-input-text" placeholder="e.g., TV Power">
+					<input type="text" id="newCodeName" class="cbi-input-text" placeholder="e.g., Power, Volume Up">
 				</div>
 			</div>
 			<div class="btn-container">
@@ -89,10 +108,7 @@
 		</div>
 	</div>
 	<hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
-	<table class="data-table">
-		<thead><tr><th>Saved Codes</th><th>Name</th><th>Device</th><th>Action</th></tr></thead>
-		<tbody id="savedCodeList"></tbody>
-	</table>
+	<div id="savedCodeContainer"></div>
 </div>
 
 <!-- Log Panel -->
@@ -105,6 +121,7 @@
 	const API_URL = '<%=luci.dispatcher.build_url("admin/services/broadlink_api")%>';
 	const logPanel = document.getElementById('log-panel');
 	let logHistory = [];
+	let appData = { devices: [], remotes: [], codes: [] };
 
 	// --- Core Functions ---
 	function log(message, type = 'info') {
@@ -112,11 +129,9 @@
 		const fullMessage = `[${timestamp}] ${message}`;
 		logHistory.unshift(fullMessage);
 		if (logHistory.length > 25) logHistory.pop();
-		
 		let color = '#fff';
 		if (type === 'error') color = '#ff8a8a';
 		if (type === 'success') color = '#8aff94';
-		
 		logPanel.innerHTML = logHistory.map(entry => `<div style="color:${color}; border-bottom: 1px solid #444; padding: 2px 0;">${escapeHTML(entry)}</div>`).join('');
 	}
 
@@ -131,7 +146,11 @@
 				log('API call failed: No response from server.', 'error');
 				return null;
 			}
-			log(`API Action '${params.action}' successful.`);
+			if (response.success) {
+				log(`API Action '${params.action}' successful.`);
+			} else {
+				log(`API Action '${params.action}' failed: ${response.message}`, 'error');
+			}
 			return response;
 		} catch (e) {
 			log(`API call error for action '${params.action}': ${e}`, 'error');
@@ -143,13 +162,16 @@
 	function renderAll() {
 		log('Refreshing all data from server...');
 		apiCall({ action: 'get_status' }).then(data => {
-			if(data) renderStatus(data);
+			if(data && data.success) renderStatus(data);
 		});
 		apiCall({ action: 'get_data' }).then(data => {
-			if(data) {
+			if(data && data.success) {
+				appData = data;
 				renderConfiguredDevices(data.devices);
-				renderSavedCodes(data.codes);
-				populateLearnSelect(data.devices);
+				renderConfiguredRemotes(data.remotes, data.devices);
+				renderSavedCodes(data.remotes, data.codes);
+				populateDeviceSelects(data.devices);
+				populateRemoteSelects(data.remotes);
 			}
 		});
 	}
@@ -164,15 +186,14 @@
 		const list = document.getElementById('discoveryList');
 		list.innerHTML = '';
 		if (!devices || devices.length === 0) {
-			list.innerHTML = '<tr><td colspan="5" style="text-align:center;">No new devices found.</td></tr>';
+			list.innerHTML = '<tr><td colspan="4" style="text-align:center;">No new devices found.</td></tr>';
 			return;
 		}
 		devices.forEach(dev => {
 			const row = list.insertRow();
 			row.innerHTML = `
 				<td>${escapeHTML(dev.type_name)}</td>
-				<td>${escapeHTML(dev.mac)}</td>
-				<td>${escapeHTML(dev.ip)}</td>
+				<td>${escapeHTML(dev.mac)}<br>${escapeHTML(dev.ip)}</td>
 				<td>0x${dev.type_code.toString(16)}</td>
 				<td class="actions"><button class="glass-btn" onclick="addDevice(this, '${escapeHTML(dev.mac)}', '${escapeHTML(dev.ip)}', '${escapeHTML(dev.type_name)}')">Add</button></td>
 			`;
@@ -183,7 +204,7 @@
 		const list = document.getElementById('configuredDeviceList');
 		list.innerHTML = '';
 		if (!devices || devices.length === 0) {
-			list.innerHTML = '<tr><td colspan="4" style="text-align:center;">No devices configured.</td></tr>';
+			list.innerHTML = '<tr><td colspan="5" style="text-align:center;">No devices configured.</td></tr>';
 			return;
 		}
 		devices.forEach(dev => {
@@ -197,54 +218,98 @@
 		});
 	}
 
-	function renderSavedCodes(codes) {
-		const list = document.getElementById('savedCodeList');
+	function renderConfiguredRemotes(remotes, devices) {
+		const list = document.getElementById('configuredRemoteList');
 		list.innerHTML = '';
-		if (!codes || codes.length === 0) {
-			list.innerHTML = '<tr><td colspan="4" style="text-align:center;">No codes saved.</td></tr>';
+		if (!remotes || remotes.length === 0) {
+			list.innerHTML = '<tr><td colspan="3" style="text-align:center;">No remotes configured.</td></tr>';
 			return;
 		}
-		codes.forEach(code => {
+		remotes.forEach(remote => {
+			const device = devices.find(d => d.id === remote.device);
+			const deviceName = device ? device.name : 'N/A';
 			const row = list.insertRow();
 			row.innerHTML = `
-				<td>${escapeHTML(code.name)}</td>
-				<td>${escapeHTML(code.device)}</td>
-				<td class="actions">
-					<button class="glass-btn" onclick="testCode(this, '${escapeHTML(code.id)}')">Test</button>
-					<button class="glass-btn btn-negative" onclick="removeCode(this, '${escapeHTML(code.id)}')">Remove</button>
-				</td>
+				<td>${escapeHTML(remote.name)}</td>
+				<td>${escapeHTML(deviceName)}</td>
+				<td class="actions"><button class="glass-btn btn-negative" onclick="removeRemote(this, '${escapeHTML(remote.id)}')">Remove</button></td>
 			`;
 		});
 	}
 
-	function populateLearnSelect(devices) {
-		const select = document.getElementById('learnDeviceSelect');
+	function renderSavedCodes(remotes, codes) {
+		const container = document.getElementById('savedCodeContainer');
+		container.innerHTML = '';
+		if (!remotes || remotes.length === 0) {
+			container.innerHTML = '<p style="text-align:center;">Create a remote to start adding codes.</p>';
+			return;
+		}
+		remotes.forEach(remote => {
+			const remoteCodes = codes.filter(c => c.remote === remote.id);
+			const accordion = document.createElement('div');
+			accordion.innerHTML = `
+				<div class="accordion-header" onclick="toggleAccordion(this)">
+					<span>${escapeHTML(remote.name)}</span>
+					<span>${remoteCodes.length} code(s) &nbsp; ▼</span>
+				</div>
+				<div class="accordion-content">
+					<table class="data-table">
+						${remoteCodes.map(code => `
+							<tr>
+								<td>${escapeHTML(code.name)}</td>
+								<td class="actions">
+									<button class="glass-btn" onclick="testCode(this, '${escapeHTML(code.id)}')">Test</button>
+									<button class="glass-btn btn-negative" onclick="removeCode(this, '${escapeHTML(code.id)}')">Remove</button>
+								</td>
+							</tr>
+						`).join('') || '<tr><td>No codes for this remote yet.</td></tr>'}
+					</table>
+				</div>
+			`;
+			container.appendChild(accordion);
+		});
+	}
+
+	function populateDeviceSelects(devices) {
+		const select = document.getElementById('addRemoteDeviceSelect');
 		select.innerHTML = '';
 		if (!devices || devices.length === 0) {
-			select.innerHTML = '<option>Add a device first</option>';
+			select.innerHTML = '<option>Add a physical device first</option>';
+			return;
+		}
+		devices.forEach(dev => {
+			select.innerHTML += `<option value="${escapeHTML(dev.id)}">${escapeHTML(dev.name)}</option>`;
+		});
+	}
+
+	function populateRemoteSelects(remotes) {
+		const select = document.getElementById('learnRemoteSelect');
+		select.innerHTML = '';
+		if (!remotes || remotes.length === 0) {
+			select.innerHTML = '<option>Create a remote first</option>';
 			document.getElementById('learnBtn').disabled = true;
 			return;
 		}
 		document.getElementById('learnBtn').disabled = false;
-		devices.forEach(dev => {
-			const option = document.createElement('option');
-			option.value = dev.id;
-			option.textContent = `${dev.name} (${dev.ip})`;
-			select.appendChild(option);
+		remotes.forEach(remote => {
+			select.innerHTML += `<option value="${escapeHTML(remote.id)}">${escapeHTML(remote.name)}</option>`;
 		});
+	}
+	
+	function toggleAccordion(header) {
+		const content = header.nextElementSibling;
+		content.classList.toggle('active');
+		const arrow = header.querySelector('span:last-child');
+		arrow.innerHTML = content.classList.contains('active') ? `${content.querySelectorAll('tr').length} code(s) &nbsp; ▲` : `${content.querySelectorAll('tr').length} code(s) &nbsp; ▼`;
 	}
 
 	// --- Event Handlers ---
 	function restartService() {
 		log('Requesting service restart...');
-		luci.sys.call({
-			path: '/etc/init.d/broadlink',
-			params: ['restart'],
-			cb: function() {
-				log('Service restart command sent.', 'success');
-				setTimeout(renderAll, 2000);
-			}
-		});
+		luci.sys.call({ path: '/etc/init.d/broadlink', params: ['restart'], cb: () => {
+			log('Service restart command sent.', 'success');
+			setTimeout(renderAll, 2000);
+		}});
 	}
 	
 	async function discoverDevices() {
@@ -257,55 +322,62 @@
 		if (data && data.success) {
 			log(`Discovery finished. Found ${data.devices.length} devices.`, 'success');
 			renderDiscovery(data.devices);
-		} else {
-			log('Discovery failed.', 'error');
 		}
 	}
 
 	async function addDevice(btn, mac, ip, type) {
 		btn.disabled = true;
 		const name = prompt(`Enter a name for this device (${mac})`, `My ${type}`);
-		if (!name) {
-			btn.disabled = false;
-			return;
-		}
+		if (!name) { btn.disabled = false; return; }
 		log(`Adding device ${name}...`);
 		const data = await apiCall({ action: 'add_device', mac: mac, ip: ip, type: type, name: name });
-		if (data && data.success) {
-			log('Device added successfully.', 'success');
-			renderAll();
-		} else {
-			log('Failed to add device.', 'error');
-			btn.disabled = false;
-		}
+		if (data && data.success) renderAll(); else btn.disabled = false;
 	}
 
 	async function removeDevice(btn, id) {
-		if (!confirm(`Are you sure you want to remove the device "${id}" and all its saved codes?`)) return;
+		if (!confirm(`Are you sure you want to remove the device "${id}" and all its associated remotes and codes?`)) return;
 		btn.disabled = true;
 		log(`Removing device ${id}...`);
 		const data = await apiCall({ action: 'remove_device', id: id });
+		if (data && data.success) renderAll(); else btn.disabled = false;
+	}
+	
+	async function addRemote() {
+		const nameInput = document.getElementById('newRemoteName');
+		const deviceSelect = document.getElementById('addRemoteDeviceSelect');
+		if (!nameInput.value) { alert('Please enter a name for the remote.'); return; }
+		log(`Adding remote "${nameInput.value}"...`);
+		const data = await apiCall({ action: 'add_remote', name: nameInput.value, device_id: deviceSelect.value });
 		if (data && data.success) {
-			log('Device removed.', 'success');
+			nameInput.value = '';
 			renderAll();
-		} else {
-			log('Failed to remove device.', 'error');
-			btn.disabled = false;
 		}
+	}
+	
+	async function removeRemote(btn, id) {
+		if (!confirm(`Are you sure you want to remove the remote "${id}" and all its codes?`)) return;
+		btn.disabled = true;
+		log(`Removing remote ${id}...`);
+		const data = await apiCall({ action: 'remove_remote', id: id });
+		if (data && data.success) renderAll(); else btn.disabled = false;
 	}
 
 	async function learnCode() {
-		const deviceId = document.getElementById('learnDeviceSelect').value;
-		if (!deviceId) {
-			alert('Please select a device.');
-			return;
-		}
-		log(`Starting learning process for ${deviceId}...`);
+		const remoteSelect = document.getElementById('learnRemoteSelect');
+		const remoteId = remoteSelect.value;
+		if (!remoteId) { alert('Please select a remote.'); return; }
+		
+		const remote = appData.remotes.find(r => r.id === remoteId);
+		const device = appData.devices.find(d => d.id === remote.device);
+
+		if (!device) { alert('Physical device for this remote not found!'); return; }
+		
+		log(`Starting learning for remote "${remote.name}" via device "${device.name}"...`);
 		document.getElementById('learnBtn').disabled = true;
 		document.getElementById('learnStatus').style.display = 'block';
 		document.getElementById('learnedCodeSection').style.display = 'none';
 
-		const data = await apiCall({ action: 'learn', device_id: deviceId });
+		const data = await apiCall({ action: 'learn', device_id: device.id });
 
 		document.getElementById('learnBtn').disabled = false;
 		document.getElementById('learnStatus').style.display = 'none';
@@ -314,28 +386,22 @@
 			document.getElementById('learnedCodeSection').style.display = 'block';
 			document.getElementById('learnedCodeData').textContent = data.code;
 			document.getElementById('newCodeName').value = '';
+			document.getElementById('newCodeName').focus();
 		} else {
-			log(`Learning failed: ${data ? data.message : 'Unknown error'}`, 'error');
 			alert(`Learning failed: ${data ? data.message : 'Unknown error'}`);
 		}
 	}
 
 	async function saveLearnedCode() {
-		const deviceId = document.getElementById('learnDeviceSelect').value;
+		const remoteId = document.getElementById('learnRemoteSelect').value;
 		const code = document.getElementById('learnedCodeData').textContent;
 		const name = document.getElementById('newCodeName').value;
-		if (!name) {
-			alert('Please enter a name for the code.');
-			return;
-		}
+		if (!name) { alert('Please enter a name for the code.'); return; }
 		log(`Saving code "${name}"...`);
-		const data = await apiCall({ action: 'save_code', device_id: deviceId, name: name, code: code });
+		const data = await apiCall({ action: 'save_code', remote_id: remoteId, name: name, code: code });
 		if (data && data.success) {
-			log('Code saved.', 'success');
 			document.getElementById('learnedCodeSection').style.display = 'none';
 			renderAll();
-		} else {
-			log('Failed to save code.', 'error');
 		}
 	}
 
@@ -344,11 +410,6 @@
 		btn.textContent = 'Testing...';
 		log(`Testing code ${id}...`);
 		const data = await apiCall({ action: 'test_code', id: id });
-		if (data && data.success) {
-			log('Test command sent.', 'success');
-		} else {
-			log(`Test failed: ${data ? data.message : 'Unknown error'}`, 'error');
-		}
 		setTimeout(() => {
 			btn.disabled = false;
 			btn.textContent = 'Test';
@@ -360,18 +421,12 @@
 		btn.disabled = true;
 		log(`Removing code ${id}...`);
 		const data = await apiCall({ action: 'remove_code', id: id });
-		if (data && data.success) {
-			log('Code removed.', 'success');
-			renderAll();
-		} else {
-			log('Failed to remove code.', 'error');
-			btn.disabled = false;
-		}
+		if (data && data.success) renderAll(); else btn.disabled = false;
 	}
 
 	// --- Initial Load ---
 	document.addEventListener('DOMContentLoaded', function() {
-		log('Broadlink NG UI Initialized.');
+		log('Broadlink NG UI v2 Initialized.');
 		renderAll();
 	});
 </script>
