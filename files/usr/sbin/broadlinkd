@@ -1,0 +1,34 @@
+#!/usr/bin/env lua
+
+-- Broadlink NG Daemon Script
+-- This script runs as a persistent service, managed by procd.
+-- Its main job is to start the MQTT client if it's enabled in the config.
+
+local uloop = require "uloop"
+local uci = require "luci.model.uci".cursor()
+local mqtt_service = require "broadlink.mqtt"
+
+-- Initialize the uloop event manager
+uloop.init()
+
+print("Broadlink NG Daemon: Service started.")
+
+-- Check if MQTT is enabled in the configuration
+local mqtt_enabled = uci:get_first("broadlink", "global", "mqtt_enabled", "0")
+
+if mqtt_enabled == "1" then
+	print("Broadlink NG Daemon: MQTT is enabled. Starting MQTT client...")
+	-- The start function will handle connection and subscriptions
+	local ok, err = pcall(mqtt_service.start)
+	if not ok then
+		print("Broadlink NG Daemon: Failed to start MQTT service - " .. tostring(err))
+	end
+else
+	print("Broadlink NG Daemon: MQTT is disabled. Service will remain idle.")
+	-- The daemon will keep running but do nothing, waiting for API calls from LuCI.
+end
+
+-- Start the main event loop. This keeps the script running.
+uloop.run()
+
+print("Broadlink NG Daemon: Service stopped.")
