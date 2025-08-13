@@ -1,16 +1,33 @@
 #!/bin/sh
 
-echo ">>> Starting Broadlink NG Installation Script (v2.0)..."
+echo ">>> Starting Broadlink NG Installation Script (v2.1 - Robust)..."
 echo ">>> This will install the complete Broadlink control package."
 
-# 1. Install Dependencies
+# --- Function to handle errors ---
+handle_error() {
+    echo "!!! ERROR: $1"
+    echo "!!! Installation failed. Please check the error message above."
+    exit 1
+}
+
+# 1. Force clean and update package lists
+echo "--> Force cleaning opkg lists to prevent checksum errors..."
+rm -f /var/opkg-lists/*
 echo "--> Updating package lists..."
 opkg update
+if [ $? -ne 0 ]; then
+    handle_error "opkg update failed. Please check your internet connection."
+fi
 
-echo "--> Installing dependencies: lua-cjson, lua-mosquitto, lua-uloop, lua-openssl"
-opkg install lua-cjson lua-mosquitto lua-uloop lua-openssl
+# 2. Install Dependencies one-by-one with error checking
+echo "--> Installing dependencies..."
+opkg install lua-cjson || handle_error "Failed to install lua-cjson."
+opkg install lua-mosquitto || handle_error "Failed to install lua-mosquitto."
+opkg install lua-uloop || handle_error "Failed to install lua-uloop."
+opkg install lua-openssl || handle_error "Failed to install lua-openssl."
+echo "--> All dependencies installed successfully."
 
-# 2. Clean up old files to ensure a fresh installation
+# 3. Clean up old files to ensure a fresh installation
 echo "--> Cleaning up any previous installation files..."
 rm -f /etc/init.d/broadlink
 rm -f /etc/config/broadlink
@@ -19,13 +36,13 @@ rm -f /usr/lib/lua/luci/controller/broadlink.lua
 rm -f /usr/lib/lua/luci/view/broadlink_ui.htm
 rm -rf /usr/lib/lua/broadlink
 
-# 3. Create necessary directories
+# 4. Create necessary directories
 echo "--> Creating installation directories..."
 mkdir -p /usr/lib/lua/luci/controller
 mkdir -p /usr/lib/lua/luci/view
 mkdir -p /usr/lib/lua/broadlink
 
-# 4. Write all application files from scratch
+# 5. Write all application files from scratch
 
 # --- File: /etc/config/broadlink ---
 echo "--> Creating UCI configuration file..."
@@ -305,7 +322,7 @@ end
 return _M
 EoL
 
-# --- File: /usr/lib/lua/luci/controller/broadlink.lua ---
+# --- File: /usr/lib/lua/luci/controller/broadlink.lua (FIXED UCI CALLS) ---
 echo "--> Creating the LuCI controller..."
 cat > /usr/lib/lua/luci/controller/broadlink.lua <<'EoL'
 module("luci.controller.broadlink", package.seeall)
@@ -337,7 +354,12 @@ function api_handler()
     elseif action == "add_device" then
         local mac, ip, type, name = luci.http.formvalue("mac"), luci.http.formvalue("ip"), luci.http.formvalue("type"), luci.http.formvalue("name") or ("Dev_" .. luci.http.formvalue("mac"):sub(-5):gsub(":", ""))
         local id = name:gsub("[^%w_]", "")
-        uci:section(id, "device", {name=name, mac=mac, ip=ip, type=type, enabled="1"})
+        uci:add("broadlink", "device", id)
+        uci:set("broadlink", id, "name", name)
+        uci:set("broadlink", id, "mac", mac)
+        uci:set("broadlink", id, "ip", ip)
+        uci:set("broadlink", id, "type", type)
+        uci:set("broadlink", id, "enabled", "1")
         uci:commit("broadlink")
         response = { success = true }
     elseif action == "remove_device" then
@@ -352,7 +374,9 @@ function api_handler()
     elseif action == "add_remote" then
         local name, device_id = luci.http.formvalue("name"), luci.http.formvalue("device_id")
         local id = name:gsub("[^%w_]", "")
-        uci:section(id, "remote", {name=name, device=device_id})
+        uci:add("broadlink", "remote", id)
+        uci:set("broadlink", id, "name", name)
+        uci:set("broadlink", id, "device", device_id)
         uci:commit("broadlink")
         response = { success = true }
     elseif action == "remove_remote" then
@@ -371,7 +395,10 @@ function api_handler()
     elseif action == "save_code" then
         local remote_id, name, code = luci.http.formvalue("remote_id"), luci.http.formvalue("name"), luci.http.formvalue("code")
         local id = remote_id .. "_" .. name:gsub("[^%w_]", "")
-        uci:section(id, "code", {name=name, remote=remote_id, code=code})
+        uci:add("broadlink", "code", id)
+        uci:set("broadlink", id, "name", name)
+        uci:set("broadlink", id, "remote", remote_id)
+        uci:set("broadlink", id, "code", code)
         uci:commit("broadlink")
         response = { success = true }
     elseif action == "remove_code" then
@@ -589,15 +616,20 @@ cat > /usr/lib/lua/luci/view/broadlink_ui.htm <<'EoL'
 <%+footer%>
 EoL
 
-# 5. Set correct permissions for executable files
+# 6. Set correct permissions for executable files
 echo "--> Setting executable permissions..."
 chmod +x /etc/init.d/broadlink
 chmod +x /usr/sbin/broadlinkd
 
-# 6. Enable and start the service
+# 7. Enable and start the service
 echo "--> Enabling and starting the Broadlink NG service..."
 /etc/init.d/broadlink enable
 /etc/init.d/broadlink restart
+
+# Final check
+if [ $? -ne 0 ]; then
+    handle_error "Service failed to start. Please check logs with 'logread -e broadlink'."
+fi
 
 echo ""
 echo ">>> Broadlink NG installation is complete! <<<"
